@@ -33,16 +33,12 @@ module Elelem
       end
 
       def say(text, as: nil)
+        text = "\n  ✗ #{text}" if as == :error
         emit("content", text)
       end
 
       def doing(name, args, state: "+")
         say "#{state} #{name}(#{args})"
-      end
-
-      def oops(error)
-        say "\n  ✗ #{error.message}"
-        Elelem.logger.warn("agent: #{error.message}\n#{error.backtrace.join("\n")}")
       end
 
       def print(text)
