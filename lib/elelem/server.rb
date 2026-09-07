@@ -1,7 +1,21 @@
 # frozen_string_literal: true
 
+require "elelem"
+require "json"
+require "webrick"
+
+require_relative "server/version"
+require_relative "server/web_terminal"
+
 module Elelem
   class Server
+    def self.serve(provider: "stub", port: 4567, toolbox: Toolbox.new)
+      client = Providers.build(provider)
+      agent = Agent.new(client, toolbox: toolbox, terminal: WebTerminal.new)
+      Plugins.setup!(agent)
+      new(agent, port: port).start
+    end
+
     def initialize(agent, port: 4567, address: "0.0.0.0")
       @agent = agent
       @port = port

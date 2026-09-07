@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe Elelem::WebTerminal do
+RSpec.describe Elelem::Server::WebTerminal do
   subject { described_class.new }
 
   let(:events) { subject.subscribe }
@@ -35,6 +35,11 @@ RSpec.describe Elelem::WebTerminal do
       subject.say("+ \e[36mexecute\e[0m(...)")
       expect(drain).to eq([{ type: "content", text: "+ execute(...)" }])
     end
+
+    it "accepts the markdown keyword like Terminal#say" do
+      subject.say("hello", markdown: true)
+      expect(drain).to eq([{ type: "content", text: "hello" }])
+    end
   end
 
   describe "#think" do
@@ -52,9 +57,28 @@ RSpec.describe Elelem::WebTerminal do
   end
 
   describe "#display_file" do
-    it "emits the fallback" do
-      subject.display_file("a.rb", fallback: "contents")
+    it "emits the file's contents" do
+      Tempfile.create do |file|
+        file.write("contents")
+        file.flush
+        subject.display_file(file.path, fallback: "fallback")
+        expect(drain).to eq([{ type: "content", text: "contents" }])
+      end
+    end
+
+    it "emits the fallback when the file is missing" do
+      subject.display_file("/no/such/file.rb", fallback: "contents")
       expect(drain).to eq([{ type: "content", text: "contents" }])
+    end
+
+    it "emits the fallback when the file is not valid UTF-8" do
+      Tempfile.create do |file|
+        file.binmode
+        file.write("\xFF\xFE\x00\x01")
+        file.flush
+        subject.display_file(file.path, fallback: "contents")
+        expect(drain).to eq([{ type: "content", text: "contents" }])
+      end
     end
   end
 

@@ -1,0 +1,17 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "elelem/server"
+require "optparse"
+
+provider = ENV.fetch("ELELEM_PROVIDER", "stub")
+port = 4567
+
+OptionParser.new do |o|
+  o.banner = "Usage: elelem-server [options]"
+  o.on("-p", "--provider NAME", "Provider to use (default: #{provider})") { |v| provider = v }
+  o.on("--port PORT", Integer, "Port to listen on (default: #{port})") { |v| port = v }
+  o.on("-h", "--help", "Show this help") { puts o; exit }
+end.parse!(ARGV)
+
+Elelem::Server.serve(provider: provider, port: port)
