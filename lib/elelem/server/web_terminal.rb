@@ -3,8 +3,6 @@
 module Elelem
   class Server
     class WebTerminal
-      include Output
-
       def initialize
         @subscribers = []
         @mutex = Mutex.new
