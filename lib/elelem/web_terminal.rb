@@ -24,17 +24,32 @@ module Elelem
       false
     end
 
-    def say(text)
-      emit("content", text)
-    end
-
-    def print(text)
-      emit("content", text)
+    def ask(prompt)
+      emit("prompt", prompt)
+      @answers.pop
     end
 
     def think(text)
       emit("thinking", text)
       nil
+    end
+
+    def say(text)
+      emit("content", text)
+    end
+
+    def do(header)
+      gap
+      say header
+    end
+
+    def oops(error)
+      say "\n  ✗ #{error.message}"
+      Elelem.logger.warn("agent: #{error.message}\n#{error.backtrace.join("\n")}")
+    end
+
+    def print(text)
+      emit("content", text)
     end
 
     def markdown(text)
@@ -43,11 +58,6 @@ module Elelem
 
     def display_file(path, fallback: nil)
       say(fallback || path)
-    end
-
-    def ask(prompt)
-      emit("prompt", prompt)
-      @answers.pop
     end
 
     def answer(text)
