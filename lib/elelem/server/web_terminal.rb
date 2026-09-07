@@ -36,8 +36,8 @@ module Elelem
         emit("content", text)
       end
 
-      def doing(header)
-        say header
+      def doing(name, args, state: "+")
+        say "#{state} #{name}(#{args})"
       end
 
       def oops(error)
