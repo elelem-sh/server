@@ -10,7 +10,7 @@ require_relative "server/web_terminal"
 module Elelem
   class Server
     def self.serve(provider: "stub", port: 4567, toolbox: Toolbox.new)
-      client = Config.build(provider)
+      client = Config.build_client(provider)
       web_terminal = WebTerminal.new
       agent = Agent.new(client, toolbox: toolbox, output: web_terminal, input: web_terminal)
       Config.apply(agent)
