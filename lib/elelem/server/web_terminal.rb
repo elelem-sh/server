@@ -3,6 +3,8 @@
 module Elelem
   class Server
     class WebTerminal
+      include Output
+
       def initialize
         @subscribers = []
         @mutex = Mutex.new
@@ -21,26 +23,20 @@ module Elelem
         true
       end
 
-      def quiet?
-        false
-      end
-
       def ask(prompt)
         emit("prompt", prompt)
         @answers.pop
       end
 
-      def think(text)
+      def thinking(text)
         emit("thinking", text)
-        nil
       end
 
-      def say(text, markdown: false)
+      def say(text, as: nil)
         emit("content", text)
       end
 
-      def do(header)
-        gap
+      def doing(header)
         say header
       end
 
@@ -51,10 +47,6 @@ module Elelem
 
       def print(text)
         emit("content", text)
-      end
-
-      def markdown(text)
-        text
       end
 
       def display_file(path, fallback: nil)
@@ -73,12 +65,6 @@ module Elelem
       def done
         broadcast(type: "done")
       end
-
-      def waiting; end
-
-      def gap; end
-
-      def newline(n: 1); end
 
       private
 

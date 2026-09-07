@@ -15,10 +15,6 @@ RSpec.describe Elelem::Server::WebTerminal do
     it { expect(subject).to be_interactive }
   end
 
-  describe "#quiet?" do
-    it { expect(subject).not_to be_quiet }
-  end
-
   describe "#say" do
     it "emits content" do
       subject.say("hello")
@@ -36,23 +32,16 @@ RSpec.describe Elelem::Server::WebTerminal do
       expect(drain).to eq([{ type: "content", text: "+ execute(...)" }])
     end
 
-    it "accepts the markdown keyword like Terminal#say" do
-      subject.say("hello", markdown: true)
+    it "accepts the as: keyword like Terminal#say" do
+      subject.say("hello", as: :markdown)
       expect(drain).to eq([{ type: "content", text: "hello" }])
     end
   end
 
-  describe "#think" do
-    it "emits thinking and returns nil so #print stays a no-op" do
-      expect(subject.think("pondering")).to be_nil
+  describe "#thinking" do
+    it "emits a thinking event" do
+      subject.thinking("pondering")
       expect(drain).to eq([{ type: "thinking", text: "pondering" }])
-    end
-  end
-
-  describe "#markdown" do
-    it "passes text through for client-side rendering" do
-      expect(subject.markdown("# hi")).to eq("# hi")
-      expect(drain).to be_empty
     end
   end
 
@@ -89,11 +78,9 @@ RSpec.describe Elelem::Server::WebTerminal do
     end
   end
 
-  describe "terminal-only concerns" do
-    it "are no-ops" do
+  describe "#waiting" do
+    it "is a no-op" do
       subject.waiting
-      subject.gap
-      subject.newline
       expect(drain).to be_empty
     end
   end
