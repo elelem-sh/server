@@ -39,6 +39,9 @@ module Elelem
         say "#{state} #{name}(#{args})"
       end
 
+      def waiting
+      end
+
       def print(text)
         emit("content", text)
       end
