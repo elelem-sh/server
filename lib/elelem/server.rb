@@ -80,7 +80,8 @@ module Elelem
     end
 
     def answer(req, res)
-      @terminal.answer(JSON.parse(req.body)["text"].to_s)
+      body = JSON.parse(req.body)
+      @terminal.answer(body["id"].to_i, body["text"].to_s)
       res.status = 204
     end
 
@@ -181,7 +182,7 @@ module Elelem
         const respond = (answer) => {
           el.querySelectorAll("button").forEach((b) => b.remove());
           el.insertAdjacentHTML("beforeend", "<div><em>" + answer + "</em></div>");
-          fetch("/answer", { method: "POST", body: JSON.stringify({ text: answer }) });
+          fetch("/answer", { method: "POST", body: JSON.stringify({ id: el.dataset.id, text: answer }) });
         };
         const allow = document.createElement("button");
         allow.className = "allow";
@@ -194,6 +195,8 @@ module Elelem
         el.append(allow, deny);
         log.appendChild(el);
         scroll(was);
+        // Store the ID for this prompt
+        el.dataset.id = Date.now() + Math.random();
       }
 
       new EventSource("/events").onmessage = (e) => {

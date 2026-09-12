@@ -6,7 +6,8 @@ module Elelem
       def initialize
         @subscribers = []
         @mutex = Mutex.new
-        @answers = Queue.new
+        @prompts = {}
+        @prompt_counter = 0
       end
 
       def subscribe
@@ -22,8 +23,10 @@ module Elelem
       end
 
       def ask(prompt)
-        emit("prompt", prompt)
-        @answers.pop
+        id = @prompt_counter += 1
+        emit("prompt", prompt, id: id)
+        @prompts[id] = Queue.new
+        @prompts[id].pop
       end
 
       def thinking(text)
@@ -55,8 +58,11 @@ module Elelem
         say(fallback || path)
       end
 
-      def answer(text)
-        @answers << text
+      def answer(id, text)
+        if @prompts.key?(id)
+          @prompts[id] << text
+          @prompts.delete(id)
+        end
       end
 
       def done
@@ -65,11 +71,11 @@ module Elelem
 
       private
 
-      def emit(type, text)
+      def emit(type, text, id: nil)
         plain = text.to_s.gsub(/\e\[[0-9;]*[a-zA-Z]/, "")
         return if plain.strip.empty?
 
-        broadcast(type: type, text: plain)
+        broadcast(type: type, text: plain, id: id)
       end
 
       def broadcast(event)
