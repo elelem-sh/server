@@ -23,10 +23,10 @@ module Elelem
       end
 
       def ask(prompt)
-        id = @prompt_counter += 1
+        queue = Queue.new
+        id = @mutex.synchronize { @prompts[@prompt_counter += 1] = queue; @prompt_counter }
         emit("prompt", prompt, id: id)
-        @prompts[id] = Queue.new
-        @prompts[id].pop
+        queue.pop
       end
 
       def thinking(text)
@@ -59,9 +59,11 @@ module Elelem
       end
 
       def answer(id, text)
-        if @prompts.key?(id)
-          @prompts[id] << text
-          @prompts.delete(id)
+        @mutex.synchronize do
+          if @prompts.key?(id)
+            @prompts[id] << text
+            @prompts.delete(id)
+          end
         end
       end
 
@@ -75,7 +77,7 @@ module Elelem
         plain = text.to_s.gsub(/\e\[[0-9;]*[a-zA-Z]/, "")
         return if plain.strip.empty?
 
-        broadcast(type: type, text: plain, id: id)
+        broadcast({ type: type, text: plain, id: id }.compact)
       end
 
       def broadcast(event)

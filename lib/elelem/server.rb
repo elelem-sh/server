@@ -173,11 +173,12 @@ module Elelem
         scroll(was);
       }
 
-      function askPermission(text) {
+      function askPermission(id, text) {
         current = null;
         const was = atBottom();
         const el = document.createElement("div");
         el.className = "prompt";
+        el.dataset.id = id;
         el.innerHTML = "<div>" + escape(text) + "</div>";
         const respond = (answer) => {
           el.querySelectorAll("button").forEach((b) => b.remove());
@@ -195,15 +196,13 @@ module Elelem
         el.append(allow, deny);
         log.appendChild(el);
         scroll(was);
-        // Store the ID for this prompt
-        el.dataset.id = Date.now() + Math.random();
       }
 
       new EventSource("/events").onmessage = (e) => {
         const event = JSON.parse(e.data);
         if (event.type === "content") append("assistant", event.text);
         else if (event.type === "thinking") append("thinking", event.text);
-        else if (event.type === "prompt") askPermission(event.text);
+        else if (event.type === "prompt") askPermission(event.id, event.text);
         else if (event.type === "done") current = null;
       };
 

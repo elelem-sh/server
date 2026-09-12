@@ -101,10 +101,29 @@ RSpec.describe Elelem::Server::WebTerminal do
   end
 
   describe "#ask" do
-    it "emits a prompt and blocks until answered" do
+    it "emits a prompt with an id and blocks until answered with a matching id" do
       thread = Thread.new { subject.ask("Allow?") }
-      expect(events.pop).to eq({ type: "prompt", text: "Allow?" })
-      subject.answer("n")
+      event = events.pop
+      expect(event).to include(type: "prompt", text: "Allow?")
+      subject.answer(event[:id], "n")
+      expect(thread.value).to eq("n")
+    end
+
+    it "ignores an answer for an id that isn't pending" do
+      thread = Thread.new { subject.ask("Allow?") }
+      event = events.pop
+      subject.answer(event[:id] + 1, "n")
+      subject.answer(event[:id], "y")
+      expect(thread.value).to eq("y")
+    end
+
+    it "does not let an answer sent before any prompt pre-approve the next prompt" do
+      subject.answer(1, "y")
+
+      thread = Thread.new { subject.ask("Allow?") }
+      event = events.pop
+      subject.answer(event[:id], "n")
+
       expect(thread.value).to eq("n")
     end
   end
