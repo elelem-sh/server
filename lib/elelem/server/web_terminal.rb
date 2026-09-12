@@ -24,7 +24,10 @@ module Elelem
 
       def ask(prompt)
         queue = Queue.new
-        id = @mutex.synchronize { @prompts[@prompt_counter += 1] = queue; @prompt_counter }
+        id = @mutex.synchronize do
+          @prompts[@prompt_counter += 1] = queue
+          @prompt_counter
+        end
         emit("prompt", prompt, id: id)
         queue.pop
       end
@@ -42,8 +45,7 @@ module Elelem
         say "#{state} #{name}(#{args})"
       end
 
-      def waiting
-      end
+      def waiting; end
 
       def print(text)
         emit("content", text)
