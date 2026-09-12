@@ -12,16 +12,17 @@ module Elelem
     def self.serve(provider: "stub", port: 4567, toolbox: Toolbox.new)
       llm_provider = Config.build_provider(provider)
       web_terminal = WebTerminal.new
-      agent = Agent.new(llm_provider, toolbox: toolbox, output: web_terminal, input: web_terminal)
-      Config.apply(agent)
-      new(agent, port: port).start
+      agent = Agent.new(llm_provider, toolbox: toolbox, output: web_terminal)
+      session = Session.new(agent, input: web_terminal)
+      Config.apply(session)
+      new(session, port: port).start
     end
 
-    def initialize(agent, port: 4567, address: "0.0.0.0")
-      @agent = agent
+    def initialize(session, port: 4567, address: "0.0.0.0")
+      @session = session
       @port = port
       @address = address
-      @terminal = agent.output
+      @terminal = session.output
     end
 
     def start
@@ -69,7 +70,7 @@ module Elelem
     def message(req, res)
       text = JSON.parse(req.body)["text"].to_s
       Thread.new do
-        @agent.turn(text)
+        @session.turn(text)
       rescue => e
         @terminal.say("Error: #{e.message}")
       ensure
