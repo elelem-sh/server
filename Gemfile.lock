@@ -2,7 +2,7 @@ PATH
   remote: .
   specs:
     elelem-server (0.2.0)
-      elelem (~> 0.12)
+      elelem (>= 0.12, < 1)
       json (~> 3.0)
       webrick (~> 1.9)
 
