@@ -6,15 +6,17 @@ require "optparse"
 
 provider = ENV.fetch("ELELEM_PROVIDER", "stub")
 port = 4567
+address = "127.0.0.1"
 
 OptionParser.new do |o|
   o.banner = "Usage: elelem-server [options]"
   o.on("-p", "--provider NAME", "Provider to use (default: #{provider})") { |v| provider = v }
   o.on("--port PORT", Integer, "Port to listen on (default: #{port})") { |v| port = v }
+  o.on("--bind ADDR", "Address to listen on (default: #{address})") { |v| address = v }
   o.on("-h", "--help", "Show this help") do
     puts o
     exit
   end
 end.parse!(ARGV)
 
-Elelem::Server.serve(provider: provider, port: port)
+Elelem::Server.serve(provider: provider, port: port, address: address)

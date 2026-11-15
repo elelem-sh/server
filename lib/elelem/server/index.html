@@ -52,6 +52,10 @@ let current = null;
 const atBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight < 80;
 const scroll = (was) => { if (was) log.scrollTop = log.scrollHeight; };
 
+function post(path, body) {
+  return fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+}
+
 function escape(text) {
   return text.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
 }
@@ -95,7 +99,7 @@ function askPermission(id, text) {
   const respond = (answer) => {
     el.querySelectorAll("button").forEach((b) => b.remove());
     el.insertAdjacentHTML("beforeend", "<div><em>" + answer + "</em></div>");
-    fetch("/answer", { method: "POST", body: JSON.stringify({ id: el.dataset.id, text: answer }) });
+    post("/answer", { id: el.dataset.id, text: answer });
   };
   const allow = document.createElement("button");
   allow.className = "allow";
@@ -125,7 +129,7 @@ document.getElementById("composer").onsubmit = (e) => {
   append("user", text);
   current = null;
   input.value = "";
-  fetch("/message", { method: "POST", body: JSON.stringify({ text: text }) });
+  post("/message", { text: text });
 };
 
 input.addEventListener("keydown", (e) => {

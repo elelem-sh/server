@@ -2,6 +2,7 @@
 
 require "elelem"
 require "json"
+require "uri"
 require "webrick"
 
 require_relative "server/version"
@@ -10,17 +11,18 @@ require_relative "server/web_terminal"
 module Elelem
   class Server
     INDEX = File.read(File.expand_path("server/index.html", __dir__))
+    LOCAL_HOSTS = %w[localhost 127.0.0.1 [::1]].freeze
 
-    def self.serve(provider: "stub", port: 4567, toolbox: Toolbox.new)
+    def self.serve(provider: "stub", port: 4567, address: "127.0.0.1", toolbox: Toolbox.new)
       llm_provider = Config.build_provider(provider)
       web_terminal = WebTerminal.new
       agent = Agent.new(llm_provider, toolbox: toolbox, output: web_terminal)
       session = Session.new(agent, input: web_terminal)
       Config.apply(session)
-      new(session, port: port).start
+      new(session, port: port, address: address).start
     end
 
-    def initialize(session, port: 4567, address: "0.0.0.0")
+    def initialize(session, port: 4567, address: "127.0.0.1")
       @session = session
       @port = port
       @address = address
@@ -34,10 +36,9 @@ module Elelem
         Logger: WEBrick::Log.new(File::NULL),
         AccessLog: []
       )
-      server.mount_proc("/", &method(:index))
-      server.mount_proc("/events", &method(:events))
-      server.mount_proc("/message", &method(:message))
-      server.mount_proc("/answer", &method(:answer))
+      %i[index events message answer].each do |name|
+        server.mount_proc(name == :index ? "/" : "/#{name}", &guarded(name))
+      end
 
       trap("INT") { server.shutdown }
       $stdout.puts "elelem v#{VERSION} listening on http://#{@address}:#{@port}"
@@ -45,6 +46,41 @@ module Elelem
     end
 
     private
+
+    # The agent can run commands, so only this machine's own pages may drive it.
+    # A Host check stops DNS rebinding; JSON plus a matching Origin stops a
+    # cross-site form or fetch.
+    def guarded(name)
+      handler = method(name)
+      lambda do |req, res|
+        next handler.call(req, res) if allowed?(req)
+
+        res.status = 403
+        res.body = "forbidden"
+      end
+    end
+
+    def allowed?(req)
+      host = req["Host"].to_s
+      return false unless (LOCAL_HOSTS + [@address]).include?(host.sub(/:\d+\z/, ""))
+      return true unless req.request_method == "POST"
+
+      json?(req) && same_origin?(req["Origin"], host)
+    end
+
+    def json?(req)
+      req["Content-Type"].to_s.split(";").first.to_s.strip.casecmp?("application/json")
+    end
+
+    def same_origin?(origin, host)
+      return true if origin.nil?
+
+      uri = URI(origin)
+      authority = uri.port == uri.default_port ? uri.host : "#{uri.host}:#{uri.port}"
+      authority == host
+    rescue URI::InvalidURIError
+      false
+    end
 
     def index(_req, res)
       res.content_type = "text/html; charset=utf-8"
