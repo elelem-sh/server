@@ -22,6 +22,12 @@ RSpec.describe Elelem::Server, "request guard" do
     %w[localhost:4567 127.0.0.1:4567 [::1]:4567].each { |host| expect(allowed?(request(host: host))).to be true }
   end
 
+  it "answers a bound IPv6 address, which a Host header puts in brackets" do
+    server = described_class.new(session, port: 4567, address: "2001:db8::5")
+
+    expect(server.send(:allowed?, request(host: "[2001:db8::5]:4567"))).to be true
+  end
+
   it "refuses another Host, which is what DNS rebinding sends" do
     expect(allowed?(request(host: "evil.example:4567"))).to be false
   end

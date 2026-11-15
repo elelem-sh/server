@@ -64,10 +64,15 @@ module Elelem
 
     def allowed?(req)
       host = req["Host"].to_s
-      return false unless (LOCAL_HOSTS + [@address]).include?(host.sub(/:\d+\z/, ""))
+      return false unless local_hosts.include?(host.sub(/:\d+\z/, ""))
       return true unless req.request_method == "POST"
 
       json?(req) && same_origin?(req["Origin"], host)
+    end
+
+    # A Host header puts an IPv6 address in brackets.
+    def local_hosts
+      LOCAL_HOSTS + [@address.include?(":") ? "[#{@address}]" : @address]
     end
 
     def json?(req)
@@ -117,8 +122,9 @@ module Elelem
       rescue StandardError => e
         @terminal.say("Error: #{e.message}")
       ensure
-        release_turn
+        # done first, so a page cannot start a turn before this one says it ended.
         @terminal.done
+        release_turn
       end
       res.status = 204
     end
