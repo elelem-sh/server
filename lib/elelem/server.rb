@@ -43,7 +43,7 @@ module Elelem
       end
 
       trap("INT") { server.shutdown }
-      $stdout.puts "elelem v#{VERSION} listening on http://#{@address}:#{@port}"
+      $stdout.puts "elelem v#{VERSION} listening on http://#{url_host}:#{@port}"
       server.start
     end
 
@@ -70,9 +70,13 @@ module Elelem
       json?(req) && same_origin?(req["Origin"], host)
     end
 
-    # A Host header puts an IPv6 address in brackets.
     def local_hosts
-      LOCAL_HOSTS + [@address.include?(":") ? "[#{@address}]" : @address]
+      LOCAL_HOSTS + [url_host]
+    end
+
+    # URLs and Host headers put an IPv6 address in brackets.
+    def url_host
+      @address.include?(":") ? "[#{@address}]" : @address
     end
 
     def json?(req)
