@@ -1,0 +1,12 @@
+{
+  "bootstrap-sha": "2db5a1c81ce0983d7e4e64772169c0b6dc0b5277",
+  "packages": {
+    ".": {
+      "release-type": "ruby",
+      "package-name": "elelem-server",
+      "version-file": "lib/elelem/server/version.rb",
+      "bump-minor-pre-major": true,
+      "include-component-in-tag": false
+    }
+  }
+}
