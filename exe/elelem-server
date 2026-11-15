@@ -4,7 +4,7 @@
 require "elelem/server"
 require "optparse"
 
-provider = ENV.fetch("ELELEM_PROVIDER", "stub")
+provider = ENV.fetch("ELELEM_PROVIDER", "demo")
 port = 4567
 address = "127.0.0.1"
 

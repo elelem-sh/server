@@ -48,7 +48,7 @@ module Elelem
         true
       end
 
-      def ask(prompt)
+      def ask(prompt, **)
         queue = Queue.new
         event = @mutex.synchronize do
           id = self.class.next_prompt_id

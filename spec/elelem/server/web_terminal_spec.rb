@@ -126,6 +126,12 @@ RSpec.describe Elelem::Server::WebTerminal do
 
       expect(thread.value).to eq("n")
     end
+
+    it "accepts the options a session passes to ask" do
+      thread = Thread.new { subject.ask("Allow?", history: false) }
+      subject.answer(events.pop[:id], "y")
+      expect(thread.value).to eq("y")
+    end
   end
 
   it "replays a prompt still waiting for an answer to a page that subscribes again" do

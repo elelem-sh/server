@@ -20,7 +20,7 @@ module Elelem
     TAB_ID = /\A[\w-]{1,64}\z/
 
     # Each browser tab gets its own session, built on its first request.
-    def self.serve(provider: "stub", port: 4567, address: "127.0.0.1")
+    def self.serve(provider: "demo", port: 4567, address: "127.0.0.1")
       Config.build_provider(provider) # fail at start, not on the first page load
       new(-> { session_for(provider) }, port: port, address: address).start
     end
