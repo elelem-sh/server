@@ -9,31 +9,37 @@ require "webrick"
 
 require_relative "server/version"
 require_relative "server/web_terminal"
+require_relative "server/tab"
 
 module Elelem
   class Server
     INDEX = File.read(File.expand_path("server/index.html", __dir__))
     LOCAL_HOSTS = %w[localhost 127.0.0.1 [::1]].freeze
 
-    def self.serve(provider: "stub", port: 4567, address: "127.0.0.1", toolbox: Toolbox.new)
-      llm_provider = Config.build_provider(provider)
-      web_terminal = WebTerminal.new
-      agent = Agent.new(llm_provider, toolbox: toolbox, output: web_terminal)
-      session = Session.new(agent, input: web_terminal)
-      Config.apply(session)
-      new(session, port: port, address: address).start
+    MAX_TABS = 16
+    TAB_ID = /\A[\w-]{1,64}\z/
+
+    # Each browser tab gets its own session, built on its first request.
+    def self.serve(provider: "stub", port: 4567, address: "127.0.0.1")
+      Config.build_provider(provider) # fail at start, not on the first page load
+      new(-> { session_for(provider) }, port: port, address: address).start
+    end
+
+    def self.session_for(provider)
+      terminal = WebTerminal.new
+      agent = Agent.new(Config.build_provider(provider), toolbox: Toolbox.new, output: terminal)
+      Session.new(agent, input: terminal).tap { |session| Config.apply(session) }
     end
 
     attr_reader :token
 
-    def initialize(session, port: 4567, address: "127.0.0.1", token: SecureRandom.hex(16))
-      @session = session
+    def initialize(build_session, port: 4567, address: "127.0.0.1", token: SecureRandom.hex(16))
+      @build_session = build_session
       @port = port
       @address = address
       @token = token
-      @terminal = session.output
-      @lock = Mutex.new
-      @busy = false
+      @tabs = {}
+      @tabs_lock = Mutex.new
     end
 
     def start
@@ -112,47 +118,34 @@ module Elelem
       res.body = INDEX
     end
 
-    def events(_req, res)
+    def events(req, res)
+      tab = tab_for(req) or return no_tab(res)
+
       res.content_type = "text/event-stream"
       res["Cache-Control"] = "no-cache"
       res.chunked = true
-      res.body = ->(out) { stream(out) }
+      res.body = ->(out) { stream(tab.terminal, out) }
     end
 
-    def stream(out)
-      events = @terminal.subscribe
+    def stream(terminal, out)
+      events = terminal.subscribe
       loop do
         out.write("data: #{JSON.dump(events.pop)}\n\n")
       end
     rescue IOError, Errno::EPIPE, Errno::ECONNRESET
       nil
     ensure
-      @terminal.unsubscribe(events)
+      terminal.unsubscribe(events)
     end
 
-    # One turn at a time: two at once would interleave one conversation.
+    # One turn at a time per tab: two at once would interleave one conversation.
     def message(req, res)
+      tab = tab_for(req) or return no_tab(res)
       text = JSON.parse(req.body)["text"].to_s
-      return busy(res) unless claim_turn
+      return busy(res) unless tab.claim
 
-      Thread.new do
-        @session.turn(text)
-      rescue StandardError => e
-        @terminal.say("Error: #{e.message}")
-      ensure
-        # done first, so a page cannot start a turn before this one says it ended.
-        @terminal.done
-        release_turn
-      end
+      Thread.new { tab.run(text) }
       res.status = 204
-    end
-
-    def claim_turn
-      @lock.synchronize { @busy ? false : (@busy = true) }
-    end
-
-    def release_turn
-      @lock.synchronize { @busy = false }
     end
 
     def busy(res)
@@ -161,9 +154,25 @@ module Elelem
     end
 
     def answer(req, res)
+      tab = tab_for(req) or return no_tab(res)
       body = JSON.parse(req.body)
-      @terminal.answer(body["id"].to_i, body["text"].to_s)
+      tab.terminal.answer(body["id"].to_i, body["text"].to_s)
       res.status = 204
+    end
+
+    # The page sends its tab id as a header, or in the query for EventSource.
+    def tab_for(req)
+      id = req["X-Elelem-Tab"] || req.query["tab"]
+      return unless id.is_a?(String) && id.match?(TAB_ID)
+
+      @tabs_lock.synchronize do
+        @tabs[id] ||= (Tab.new(@build_session.call) if @tabs.size < MAX_TABS)
+      end
+    end
+
+    def no_tab(res)
+      res.status = 400
+      res.body = "missing tab, or too many tabs (#{MAX_TABS})"
     end
   end
 end

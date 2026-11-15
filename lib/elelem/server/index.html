@@ -56,9 +56,13 @@ const scroll = (was) => { if (was) log.scrollTop = log.scrollHeight; };
 // The token comes in the URL elelem-server prints. Keep it for reloads in this tab.
 const token = new URLSearchParams(location.search).get("token") || sessionStorage.getItem("elelem-token") || "";
 sessionStorage.setItem("elelem-token", token);
+// Each tab has its own conversation. A reload keeps it; a new tab starts fresh.
+const random = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
+const tab = sessionStorage.getItem("elelem-tab") || random();
+sessionStorage.setItem("elelem-tab", tab);
 
 function post(path, body) {
-  const headers = { "Content-Type": "application/json", "X-Elelem-Token": token };
+  const headers = { "Content-Type": "application/json", "X-Elelem-Token": token, "X-Elelem-Tab": tab };
   return fetch(path, { method: "POST", headers: headers, body: JSON.stringify(body) });
 }
 
@@ -120,7 +124,7 @@ function askPermission(id, text) {
   scroll(was);
 }
 
-new EventSource("/events?token=" + encodeURIComponent(token)).onmessage = (e) => {
+new EventSource("/events?token=" + encodeURIComponent(token) + "&tab=" + encodeURIComponent(tab)).onmessage = (e) => {
   const event = JSON.parse(e.data);
   if (event.type === "content") append("assistant", event.text);
   else if (event.type === "thinking") append("thinking", event.text);

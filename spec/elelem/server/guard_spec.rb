@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 RSpec.describe Elelem::Server, "request guard" do
-  subject(:server) { described_class.new(session, port: 4567, token: "secret") }
+  subject(:server) { described_class.new(-> { session }, port: 4567, token: "secret") }
 
   let(:session) { double("session", output: double("terminal")) }
 
@@ -25,7 +25,7 @@ RSpec.describe Elelem::Server, "request guard" do
   end
 
   it "makes a new token for each server" do
-    expect(described_class.new(session).token).not_to eq(described_class.new(session).token)
+    expect(described_class.new(-> { session }).token).not_to eq(described_class.new(-> { session }).token)
   end
 
   it "binds to 127.0.0.1 by default" do
@@ -37,7 +37,7 @@ RSpec.describe Elelem::Server, "request guard" do
   end
 
   it "answers a bound IPv6 address, which a Host header puts in brackets" do
-    server = described_class.new(session, port: 4567, address: "2001:db8::5", token: "secret")
+    server = described_class.new(-> { session }, port: 4567, address: "2001:db8::5", token: "secret")
 
     expect(server.send(:allowed?, request(host: "[2001:db8::5]:4567"))).to be true
   end
