@@ -147,7 +147,8 @@ module Elelem
     def message(req, res)
       tab = tab_for(req) or return no_tab(res)
       text = JSON.parse(req.body)["text"].to_s
-      return busy(res) unless tab.claim
+      # Claim under the tabs lock, so the tab cannot be evicted in between.
+      return busy(res) unless @tabs_lock.synchronize { @tabs.value?(tab) && tab.claim }
 
       Thread.new { tab.run(text) }
       res.status = 204
@@ -177,8 +178,16 @@ module Elelem
     # tabs, and one at a time, because loading plugins is not thread-safe.
     def new_tab(id)
       @build_lock.synchronize do
-        @tabs_lock.synchronize { @tabs[id] } || add_tab(id, Tab.new(@build_session.call))
+        existing = @tabs_lock.synchronize { @tabs[id] }
+        next existing if existing
+        next unless room? # no session is built only to be refused
+
+        add_tab(id, Tab.new(@build_session.call))
       end
+    end
+
+    def room?
+      @tabs_lock.synchronize { @tabs.size < MAX_TABS || @tabs.each_value.any?(&:idle?) }
     end
 
     # At the limit, a tab that is idle with no page open gives up its place.

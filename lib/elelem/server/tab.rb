@@ -20,8 +20,10 @@ module Elelem
         @lock.synchronize { @busy ? false : (@busy = true) }
       end
 
-      def idle?
-        !@lock.synchronize { @busy } && terminal.subscribers.zero?
+      # Busy tabs, and tabs with a page open or seen in the last minute (an
+      # EventSource that is reconnecting), keep their place.
+      def idle?(now = Process.clock_gettime(Process::CLOCK_MONOTONIC), grace: 60)
+        !@lock.synchronize { @busy } && terminal.subscribers.zero? && now - terminal.last_seen > grace
       end
 
       # Runs a message or a /command, then tells the page the turn is done.

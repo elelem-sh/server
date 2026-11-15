@@ -34,4 +34,12 @@ RSpec.describe Elelem::Server::Tab do
     expect(session).to have_received(:turn).with("hello")
     expect(terminal).to have_received(:done)
   end
+
+  it "keeps its place for a minute after its page goes, so a reconnecting page finds it" do
+    now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    allow(terminal).to receive_messages(subscribers: 0, last_seen: now)
+
+    expect(tab.idle?(now + 30)).to be false
+    expect(tab.idle?(now + 61)).to be true
+  end
 end

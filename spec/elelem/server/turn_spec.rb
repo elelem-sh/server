@@ -7,7 +7,7 @@ RSpec.describe Elelem::Server, "tabs and turns" do
   let(:sessions) { [] }
   let(:build) do
     lambda do
-      terminal = double("terminal", done: nil, say: nil, subscribers: 0)
+      terminal = double("terminal", done: nil, say: nil, subscribers: 0, last_seen: -1_000_000)
       double("session", output: terminal).tap do |s|
         allow(s).to receive(:turn) { gate.pop }
         sessions << s

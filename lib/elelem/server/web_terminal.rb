@@ -3,12 +3,23 @@
 module Elelem
   class Server
     class WebTerminal
+      # Prompt ids are unique across every tab's terminal, so a page never
+      # mistakes a new prompt for one it already answered.
+      @next_id = 0
+      @ids = Mutex.new
+
+      def self.next_prompt_id
+        @ids.synchronize { @next_id += 1 }
+      end
+
+      attr_reader :last_seen
+
       def initialize
         @subscribers = []
         @mutex = Mutex.new
         @prompts = {}
         @open = {}
-        @prompt_counter = 0
+        @last_seen = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       end
 
       # A page that subscribes again, after a reload, gets the prompts still
@@ -27,7 +38,10 @@ module Elelem
       end
 
       def unsubscribe(queue)
-        @mutex.synchronize { @subscribers.delete(queue) }
+        @mutex.synchronize do
+          @subscribers.delete(queue)
+          @last_seen = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        end
       end
 
       def interactive?
@@ -37,7 +51,7 @@ module Elelem
       def ask(prompt)
         queue = Queue.new
         event = @mutex.synchronize do
-          id = @prompt_counter += 1
+          id = self.class.next_prompt_id
           @prompts[id] = queue
           @open[id] = { type: "prompt", text: plain(prompt), id: id }
         end

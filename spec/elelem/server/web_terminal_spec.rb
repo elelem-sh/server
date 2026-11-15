@@ -140,4 +140,16 @@ RSpec.describe Elelem::Server::WebTerminal do
     expect(asking.value).to eq("y")
     expect(terminal.subscribe.pop(timeout: 0.05)).to be_nil
   end
+
+  it "numbers prompts across every terminal, so a rebuilt tab never reuses an id" do
+    first = described_class.new
+    second = described_class.new
+    ids = [first, second].map do |terminal|
+      Thread.new { terminal.ask("ok?") }
+      sleep 0.01 until terminal.instance_variable_get(:@open).any?
+      terminal.instance_variable_get(:@open).keys.first.tap { |id| terminal.answer(id, "y") }
+    end
+
+    expect(ids.uniq.size).to eq(2)
+  end
 end
