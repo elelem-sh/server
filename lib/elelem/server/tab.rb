@@ -20,6 +20,10 @@ module Elelem
         @lock.synchronize { @busy ? false : (@busy = true) }
       end
 
+      def idle?
+        !@lock.synchronize { @busy } && terminal.subscribers.zero?
+      end
+
       # Runs a message or a /command, then tells the page the turn is done.
       def run(text)
         text.start_with?("/") ? command(text) : @session.turn(text)
@@ -35,8 +39,11 @@ module Elelem
 
       def command(line)
         name, args = line.delete_prefix("/").split(" ", 2)
-        # /exit would stop the server for every tab. Closing the tab ends this one.
-        return terminal.say("/exit is not available in the browser. Close the tab instead.") if name == "exit"
+        # /exit would stop the server, and /reload would reload plugins under
+        # every other tab. Restart elelem-server instead.
+        if %w[exit reload].include?(name)
+          return terminal.say("/#{name} is not available in the browser. Restart elelem-server instead.")
+        end
         return if @session.commands.run(name, args)
 
         terminal.say(@session.commands.names.join(" "))

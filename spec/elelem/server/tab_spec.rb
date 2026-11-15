@@ -21,10 +21,11 @@ RSpec.describe Elelem::Server::Tab do
     expect(said).to eq(["/ping"])
   end
 
-  it "does not let /exit stop the server" do
+  it "does not let /exit or /reload reach past this tab" do
     tab.run("/exit")
+    tab.run("/reload")
 
-    expect(said.first).to match(/not available in the browser/)
+    expect(said).to all(match(/not available in the browser/))
   end
 
   it "sends anything else to the model, and says when the turn is done" do

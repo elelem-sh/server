@@ -7,11 +7,23 @@ module Elelem
         @subscribers = []
         @mutex = Mutex.new
         @prompts = {}
+        @open = {}
         @prompt_counter = 0
       end
 
+      # A page that subscribes again, after a reload, gets the prompts still
+      # waiting for an answer, so the turn does not hang on one it cannot see.
       def subscribe
-        Queue.new.tap { |queue| @mutex.synchronize { @subscribers << queue } }
+        Queue.new.tap do |queue|
+          @mutex.synchronize do
+            @subscribers << queue
+            @open.each_value { |event| queue << event }
+          end
+        end
+      end
+
+      def subscribers
+        @mutex.synchronize { @subscribers.size }
       end
 
       def unsubscribe(queue)
@@ -24,11 +36,12 @@ module Elelem
 
       def ask(prompt)
         queue = Queue.new
-        id = @mutex.synchronize do
-          @prompts[@prompt_counter += 1] = queue
-          @prompt_counter
+        event = @mutex.synchronize do
+          id = @prompt_counter += 1
+          @prompts[id] = queue
+          @open[id] = { type: "prompt", text: plain(prompt), id: id }
         end
-        emit("prompt", prompt, id: id)
+        broadcast(event)
         queue.pop
       end
 
@@ -65,6 +78,7 @@ module Elelem
           if @prompts.key?(id)
             @prompts[id] << text
             @prompts.delete(id)
+            @open.delete(id)
           end
         end
       end
@@ -75,11 +89,15 @@ module Elelem
 
       private
 
-      def emit(type, text, id: nil)
-        plain = text.to_s.gsub(/\e\[[0-9;]*[a-zA-Z]/, "")
+      def emit(type, text)
+        plain = plain(text)
         return if plain.strip.empty?
 
-        broadcast({ type: type, text: plain, id: id }.compact)
+        broadcast({ type: type, text: plain })
+      end
+
+      def plain(text)
+        text.to_s.gsub(/\e\[[0-9;]*[a-zA-Z]/, "")
       end
 
       def broadcast(event)

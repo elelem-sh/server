@@ -20,6 +20,11 @@ RSpec.describe Elelem::Server, "request guard" do
     expect(allowed?(request(x_elelem_token: "guess"))).to be false
   end
 
+  it "serves the page itself without the token, which holds no secret" do
+    expect(server.send(:allowed?, request(x_elelem_token: nil), token: false)).to be true
+    expect(server.send(:allowed?, request(x_elelem_token: nil, host: "evil.example"), token: false)).to be false
+  end
+
   it "takes the token from the query string, for the first page load and EventSource" do
     expect(allowed?(request(x_elelem_token: nil, query: { "token" => "secret" }))).to be true
   end

@@ -56,6 +56,8 @@ const scroll = (was) => { if (was) log.scrollTop = log.scrollHeight; };
 // The token comes in the URL elelem-server prints. Keep it for reloads in this tab.
 const token = new URLSearchParams(location.search).get("token") || sessionStorage.getItem("elelem-token") || "";
 sessionStorage.setItem("elelem-token", token);
+// Keep the token out of the address bar and history.
+history.replaceState(null, "", "/");
 // Each tab has its own conversation. A reload keeps it; a new tab starts fresh.
 const random = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
 const tab = sessionStorage.getItem("elelem-tab") || random();
@@ -100,6 +102,8 @@ function append(cls, text) {
 }
 
 function askPermission(id, text) {
+  // A reconnect replays open prompts; show each one once.
+  if (document.querySelector('.prompt[data-id="' + id + '"]')) return;
   current = null;
   const was = atBottom();
   const el = document.createElement("div");

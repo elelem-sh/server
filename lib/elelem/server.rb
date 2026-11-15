@@ -27,8 +27,7 @@ module Elelem
 
     def self.session_for(provider)
       terminal = WebTerminal.new
-      agent = Agent.new(Config.build_provider(provider), toolbox: Toolbox.new, output: terminal)
-      Session.new(agent, input: terminal).tap { |session| Config.apply(session) }
+      Config.build_session(provider, input: terminal, output: terminal)
     end
 
     attr_reader :token
@@ -40,6 +39,7 @@ module Elelem
       @token = token
       @tabs = {}
       @tabs_lock = Mutex.new
+      @build_lock = Mutex.new
     end
 
     def start
@@ -50,7 +50,7 @@ module Elelem
         AccessLog: []
       )
       %i[index events message answer].each do |name|
-        server.mount_proc(name == :index ? "/" : "/#{name}", &guarded(name))
+        server.mount_proc(name == :index ? "/" : "/#{name}", &guarded(name, token: name != :index))
       end
 
       trap("INT") { server.shutdown }
@@ -63,21 +63,23 @@ module Elelem
 
     # The agent can run commands, so only this machine's own pages may drive it.
     # The token, printed at start, keeps out other users and programs on the
-    # machine. A Host check stops DNS rebinding; JSON plus a matching Origin
-    # stops a cross-site form or fetch.
-    def guarded(name)
+    # machine; the page itself holds no secret, so it is served without one.
+    # A Host check stops DNS rebinding; JSON plus a matching Origin stops a
+    # cross-site form or fetch.
+    def guarded(name, token: true)
       handler = method(name)
       lambda do |req, res|
-        next handler.call(req, res) if allowed?(req)
+        next handler.call(req, res) if allowed?(req, token: token)
 
         res.status = 403
         res.body = "forbidden"
       end
     end
 
-    def allowed?(req)
+    def allowed?(req, token: true)
       host = req["Host"].to_s
-      return false unless token?(req) && local_hosts.include?(host.sub(/:\d+\z/, ""))
+      return false if token && !token?(req)
+      return false unless local_hosts.include?(host.sub(/:\d+\z/, ""))
       return true unless req.request_method == "POST"
 
       json?(req) && same_origin?(req["Origin"], host)
@@ -114,6 +116,7 @@ module Elelem
     end
 
     def index(_req, res)
+      res["Referrer-Policy"] = "no-referrer"
       res.content_type = "text/html; charset=utf-8"
       res.body = INDEX
     end
@@ -130,7 +133,9 @@ module Elelem
     def stream(terminal, out)
       events = terminal.subscribe
       loop do
-        out.write("data: #{JSON.dump(events.pop)}\n\n")
+        # A ping every 15 seconds finds a closed tab, so its thread ends.
+        event = events.pop(timeout: 15)
+        out.write(event ? "data: #{JSON.dump(event)}\n\n" : ": ping\n\n")
       end
     rescue IOError, Errno::EPIPE, Errno::ECONNRESET
       nil
@@ -165,8 +170,27 @@ module Elelem
       id = req["X-Elelem-Tab"] || req.query["tab"]
       return unless id.is_a?(String) && id.match?(TAB_ID)
 
+      @tabs_lock.synchronize { @tabs[id] } || new_tab(id)
+    end
+
+    # Built outside @tabs_lock, so a slow provider does not hold up other
+    # tabs, and one at a time, because loading plugins is not thread-safe.
+    def new_tab(id)
+      @build_lock.synchronize do
+        @tabs_lock.synchronize { @tabs[id] } || add_tab(id, Tab.new(@build_session.call))
+      end
+    end
+
+    # At the limit, a tab that is idle with no page open gives up its place.
+    def add_tab(id, tab)
       @tabs_lock.synchronize do
-        @tabs[id] ||= (Tab.new(@build_session.call) if @tabs.size < MAX_TABS)
+        if @tabs.size >= MAX_TABS
+          idle = @tabs.find { |_, other| other.idle? }&.first
+          return unless idle
+
+          @tabs.delete(idle)
+        end
+        @tabs[id] = tab
       end
     end
 

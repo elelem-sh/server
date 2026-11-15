@@ -127,4 +127,17 @@ RSpec.describe Elelem::Server::WebTerminal do
       expect(thread.value).to eq("n")
     end
   end
+
+  it "replays a prompt still waiting for an answer to a page that subscribes again" do
+    terminal = described_class.new
+    asking = Thread.new { terminal.ask("Allow execute `ls`? [Y/n] > ") }
+    sleep 0.01 until terminal.instance_variable_get(:@open).any?
+
+    replay = terminal.subscribe.pop(timeout: 1)
+    expect(replay).to include(type: "prompt", text: "Allow execute `ls`? [Y/n] > ")
+
+    terminal.answer(replay[:id], "y")
+    expect(asking.value).to eq("y")
+    expect(terminal.subscribe.pop(timeout: 0.05)).to be_nil
+  end
 end
