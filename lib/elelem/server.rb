@@ -2,6 +2,8 @@
 
 require "elelem"
 require "json"
+require "openssl"
+require "securerandom"
 require "uri"
 require "webrick"
 
@@ -22,10 +24,13 @@ module Elelem
       new(session, port: port, address: address).start
     end
 
-    def initialize(session, port: 4567, address: "127.0.0.1")
+    attr_reader :token
+
+    def initialize(session, port: 4567, address: "127.0.0.1", token: SecureRandom.hex(16))
       @session = session
       @port = port
       @address = address
+      @token = token
       @terminal = session.output
       @lock = Mutex.new
       @busy = false
@@ -43,15 +48,17 @@ module Elelem
       end
 
       trap("INT") { server.shutdown }
-      $stdout.puts "elelem v#{VERSION} listening on http://#{url_host}:#{@port}"
+      $stdout.puts "elelem v#{VERSION} listening on http://#{url_host}:#{@port}/?token=#{@token}"
+      $stdout.flush # the URL carries the token; it must show even when stdout is a file
       server.start
     end
 
     private
 
     # The agent can run commands, so only this machine's own pages may drive it.
-    # A Host check stops DNS rebinding; JSON plus a matching Origin stops a
-    # cross-site form or fetch.
+    # The token, printed at start, keeps out other users and programs on the
+    # machine. A Host check stops DNS rebinding; JSON plus a matching Origin
+    # stops a cross-site form or fetch.
     def guarded(name)
       handler = method(name)
       lambda do |req, res|
@@ -64,10 +71,17 @@ module Elelem
 
     def allowed?(req)
       host = req["Host"].to_s
-      return false unless local_hosts.include?(host.sub(/:\d+\z/, ""))
+      return false unless token?(req) && local_hosts.include?(host.sub(/:\d+\z/, ""))
       return true unless req.request_method == "POST"
 
       json?(req) && same_origin?(req["Origin"], host)
+    end
+
+    # A header from the page's fetch calls; the query string for the first page
+    # load and for EventSource, which cannot set headers.
+    def token?(req)
+      given = req["X-Elelem-Token"] || req.query["token"]
+      given.is_a?(String) && OpenSSL.secure_compare(given, @token)
     end
 
     def local_hosts
