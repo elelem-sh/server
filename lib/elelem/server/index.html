@@ -58,10 +58,10 @@ function escape(text) {
 
 function render(text) {
   return escape(text)
-    .replace(/```(\\w*)\\n([\\s\\S]*?)```/g, (_m, _lang, code) => "<pre><code>" + code + "</code></pre>")
-    .replace(/`([^`\\n]+)`/g, "<code>$1</code>")
-    .replace(/\\*\\*([^*]+)\\*\\*/g, "<strong>$1</strong>")
-    .replace(/\\n/g, "<br>");
+    .replace(/```(\w*)\n([\s\S]*?)```/g, (_m, _lang, code) => "<pre><code>" + code + "</code></pre>")
+    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\n/g, "<br>");
 }
 
 function bubble(cls) {
