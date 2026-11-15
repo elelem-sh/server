@@ -27,6 +27,8 @@ module Elelem
       @port = port
       @address = address
       @terminal = session.output
+      @lock = Mutex.new
+      @busy = false
     end
 
     def start
@@ -105,16 +107,33 @@ module Elelem
       @terminal.unsubscribe(events)
     end
 
+    # One turn at a time: two at once would interleave one conversation.
     def message(req, res)
       text = JSON.parse(req.body)["text"].to_s
+      return busy(res) unless claim_turn
+
       Thread.new do
         @session.turn(text)
       rescue StandardError => e
         @terminal.say("Error: #{e.message}")
       ensure
+        release_turn
         @terminal.done
       end
       res.status = 204
+    end
+
+    def claim_turn
+      @lock.synchronize { @busy ? false : (@busy = true) }
+    end
+
+    def release_turn
+      @lock.synchronize { @busy = false }
+    end
+
+    def busy(res)
+      res.status = 409
+      res.body = "busy"
     end
 
     def answer(req, res)

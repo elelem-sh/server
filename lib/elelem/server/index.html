@@ -36,6 +36,7 @@
     border: 1px solid #35353d; background: #101014; color: inherit;
   }
   button.send { font-size: 1rem; padding: .6rem 1.2rem; border: 0; border-radius: .5rem; background: #3b6ea5; color: #fff; }
+  button.send:disabled { opacity: .5; }
 </style>
 </head>
 <body>
@@ -119,17 +120,31 @@ new EventSource("/events").onmessage = (e) => {
   if (event.type === "content") append("assistant", event.text);
   else if (event.type === "thinking") append("thinking", event.text);
   else if (event.type === "prompt") askPermission(event.id, event.text);
-  else if (event.type === "done") current = null;
+  else if (event.type === "done") { current = null; idle(); }
 };
 
-document.getElementById("composer").onsubmit = (e) => {
+const send = document.querySelector("#composer .send");
+const idle = () => { send.disabled = false; };
+
+document.getElementById("composer").onsubmit = async (e) => {
   e.preventDefault();
   const text = input.value.trim();
-  if (!text) return;
+  if (!text || send.disabled) return;
+  send.disabled = true;
   append("user", text);
   current = null;
   input.value = "";
-  post("/message", { text: text });
+  try {
+    const res = await post("/message", { text: text });
+    if (res.ok) return;
+    append("thinking", res.status === 409 ? "Still working on the last message. Try again when it is done." : "Not sent: " + res.status);
+    current = null;
+    input.value = text;
+    idle();
+  } catch (_err) {
+    input.value = text;
+    idle();
+  }
 };
 
 input.addEventListener("keydown", (e) => {
