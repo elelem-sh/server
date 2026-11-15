@@ -10,12 +10,12 @@ Gem::Specification.new do |spec|
 
   spec.summary = "A web UI server plugin for elelem."
   spec.description = "A web UI server plugin for elelem."
-  spec.homepage = "https://src.mokhan.ca/elelem/server"
+  spec.homepage = "https://elelem.sh"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 4.0.0"
   spec.metadata["allowed_push_host"] = "https://rubygems.org"
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = spec.homepage
+  spec.metadata["source_code_uri"] = "https://github.com/elelem-sh/server"
   spec.metadata["rubygems_mfa_required"] = "true"
 
   gemspec = File.basename(__FILE__)
