@@ -29,6 +29,6 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_dependency "elelem", ">= 0.13.1", "< 1"
-  spec.add_dependency "json", "~> 3.0"
+  spec.add_dependency "json", ">= 2.18"
   spec.add_dependency "webrick", "~> 1.9"
 end
